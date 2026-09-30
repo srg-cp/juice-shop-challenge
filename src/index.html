@@ -5,20 +5,34 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Juice Shop Solver</title>
   <style>
-    :root{color-scheme:dark;font-family:system-ui,Arial,sans-serif;background:#101922;color:#edf4f6}body{max-width:850px;margin:0 auto;padding:32px 18px}h1{margin-bottom:6px}p{color:#b9cad0;line-height:1.5}.card{background:#1d2a34;border:1px solid #38505d;border-radius:14px;padding:20px;margin:18px 0}label{display:block;margin:14px 0 6px;font-weight:600}input{box-sizing:border-box;width:100%;padding:11px;border-radius:7px;border:1px solid #6b8794;background:#0d1820;color:white;font:inherit}button{margin-top:18px;padding:11px 18px;border:0;border-radius:7px;background:#74d992;color:#0c2416;font-weight:700;cursor:pointer}button:disabled{opacity:.5;cursor:wait}.grid{display:grid;grid-template-columns:1fr 130px;gap:16px}.stats{display:flex;gap:24px;flex-wrap:wrap}.stat strong{font-size:1.7rem;display:block;color:#74d992}ul{padding-left:20px}li{margin:8px 0}.error{color:#ff9e9e}.muted{color:#9eb4bd}code{overflow-wrap:anywhere}#result[hidden]{display:none}
+    :root{font-family:system-ui,Arial,sans-serif;color-scheme:dark;background:#0e1921;color:#ecf5f3}
+    *{box-sizing:border-box}body{max-width:1040px;margin:auto;padding:32px 18px 70px}h1{font-size:2.3rem;margin:0 0 8px}h2{margin:0 0 14px}p{color:#b7c9cb;line-height:1.5}.lead{max-width:720px}.card{background:#1b2a33;border:1px solid #36515c;border-radius:16px;padding:22px;margin:20px 0;box-shadow:0 10px 30px #0002}.row{display:grid;grid-template-columns:1fr 1fr;gap:16px}.field label{display:block;font-weight:650;margin:0 0 8px}.field input{width:100%;border:1px solid #6c8790;border-radius:8px;background:#0e1b23;color:#fff;padding:12px;font:inherit}.actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:18px}button{border:0;border-radius:8px;background:#74da9a;color:#0a2514;font:inherit;font-weight:700;padding:12px 17px;cursor:pointer}button.secondary{background:#304750;color:#e8f3f4;border:1px solid #64828d}button:disabled{opacity:.48;cursor:not-allowed}.levels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:18px}.level{border:1px solid #425d66;border-radius:12px;padding:15px;background:#14232b}.level header{display:flex;justify-content:space-between;align-items:center;gap:8px}.level strong{font-size:1.05rem}.stars{color:#ffd66b;letter-spacing:1px}.level input{width:100%;font:inherit;background:#0e1b23;color:#fff;border:1px solid #6c8790;border-radius:7px;padding:9px;margin-top:12px}.level small{display:block;color:#aac0c5;margin-top:8px}.summary{display:flex;gap:20px;flex-wrap:wrap;align-items:center}.summary strong{font-size:1.75rem;color:#74da9a}.summary span{color:#bfd0d2}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.stat{background:#14232b;border-radius:9px;padding:12px}.stat strong{display:block;font-size:1.55rem;color:#74da9a}.stat span{color:#bed0d1}.progress{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}.progress div{background:#14232b;padding:10px;border-radius:8px}.progress strong{color:#ffd66b}.muted{color:#a9bdc2}.error{color:#ffaaaa}ul{padding-left:20px}li{margin:7px 0}#result[hidden],#availability[hidden]{display:none}@media(max-width:680px){.row,.levels,.stats,.progress{grid-template-columns:1fr 1fr}}@media(max-width:440px){.row,.levels,.stats,.progress{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
   <h1>Juice Shop Solver</h1>
-  <p>Automatiza retos en una instancia OWASP Juice Shop que administras. Introduce la URL raíz y la cantidad de retos nuevos que quieres resolver (máximo 35).</p>
+  <p class="lead">Elige una instancia OWASP Juice Shop y cuántos retos nuevos intentar por nivel de estrellas. Puedes seleccionar hasta 40 en total. Primero consulta la disponibilidad de la instancia.</p>
   <div class="card">
     <form id="form">
-      <label for="token">Token del servicio</label><input id="token" type="password" required autocomplete="off" placeholder="API_TOKEN configurado en Dokploy">
-      <div class="grid"><div><label for="url">URL de Juice Shop</label><input id="url" type="url" required placeholder="https://juice.kormind.com/"></div><div><label for="count">Cantidad</label><input id="count" type="number" min="1" max="35" value="35" required></div></div>
-      <button id="start" type="submit">Iniciar resolución</button>
+      <div class="row">
+        <div class="field"><label for="token">Token del servicio</label><input id="token" type="password" autocomplete="off" required placeholder="API_TOKEN de Dokploy"></div>
+        <div class="field"><label for="url">URL raíz de Juice Shop</label><input id="url" type="url" required placeholder="https://juice.kormind.com/"></div>
+      </div>
+      <div class="actions"><button id="inspect" class="secondary" type="button">Consultar retos disponibles</button><span id="form-message" class="muted" role="status"></span></div>
+      <section id="availability" hidden>
+        <h2>Elige la cantidad por nivel</h2>
+        <p>El perfil inicial toma los niveles 1 y 2 disponibles, hasta 4 del nivel 3, y deja los niveles 4 a 6 en cero. Puedes ajustarlo.</p>
+        <div class="levels" id="levels"></div>
+        <div class="actions summary"><div><strong id="selected">0</strong> <span>de 40 seleccionados</span></div><button id="start" type="submit">Iniciar resolución</button></div>
+      </section>
     </form>
   </div>
-  <div id="result" class="card" hidden><h2 id="state">Esperando</h2><div class="stats"><div class="stat"><strong id="solved">0</strong>Retos nuevos</div><div class="stat"><strong id="attempts">0</strong>Intentos</div><div class="stat"><strong id="initial">0</strong>Ya resueltos al inicio</div></div><p id="detail" class="muted"></p><h3>Resueltos en esta ejecución</h3><ul id="items"></ul><h3>Últimos intentos</h3><ul id="log"></ul></div>
+  <div id="result" class="card" hidden>
+    <h2 id="state">Esperando</h2>
+    <div class="stats"><div class="stat"><strong id="solved">0</strong><span>Retos nuevos confirmados</span></div><div class="stat"><strong id="attempts">0</strong><span>Intentos</span></div><div class="stat"><strong id="initial">0</strong><span>Resueltos al inicio</span></div></div>
+    <p id="detail" class="muted"></p><div id="progress" class="progress"></div>
+    <h3>Resueltos en esta ejecución</h3><ul id="items"></ul><h3>Últimos intentos</h3><ul id="log"></ul>
+  </div>
   <script src="/app.js" defer></script>
 </body>
 </html>

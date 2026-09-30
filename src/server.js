@@ -2,7 +2,7 @@ import http from 'node:http'
 import { randomUUID, timingSafeEqual } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
-import { normalizeTarget, runSolver, availableSteps } from './engine.js'
+import { normalizeTarget, runSolver, availableSteps, inspectTarget, validateQuotas } from './engine.js'
 
 const port = Number(process.env.PORT || 3000)
 const token = process.env.API_TOKEN
@@ -38,18 +38,23 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && path === '/app.js') return send(res, 200, await readFile(fileURLToPath(new URL('./app.js', import.meta.url))), 'application/javascript; charset=utf-8')
     if (!authorized(req)) return send(res, 401, { error: 'Token inválido o ausente' })
     if (req.method === 'GET' && path === '/api/steps') return send(res, 200, availableSteps)
+    if (req.method === 'POST' && path === '/api/targets/inspect') {
+      const input = await bodyJson(req)
+      const target = normalizeTarget(input.url, process.env.ALLOWED_TARGETS || '')
+      return send(res, 200, await inspectTarget(target))
+    }
     if (req.method === 'POST' && path === '/api/runs') {
       if (active) return send(res, 409, { error: 'Ya hay una ejecución activa' })
       const input = await bodyJson(req)
       const target = normalizeTarget(input.url, process.env.ALLOWED_TARGETS || '')
-      const count = Number(input.count)
-      if (!Number.isInteger(count) || count < 1 || count > 35) return send(res, 400, { error: 'La cantidad debe estar entre 1 y 35' })
+      const quotas = validateQuotas(input.quotas)
+      const count = Object.values(quotas).reduce((sum, n) => sum + n, 0)
       const id = randomUUID()
-      const job = { id, target, requested: count, status: 'queued', initialSolved: 0, newSolved: 0, solved: [], attempts: [], createdAt: new Date().toISOString() }
+      const job = { id, target, quotas, requested: count, status: 'queued', initialSolved: 0, newSolved: 0, achieved: {}, solved: [], attempts: [], createdAt: new Date().toISOString() }
       jobs.set(id, job)
       active = id
       setImmediate(async () => {
-        try { await runSolver(target, count, update => Object.assign(job, structuredClone(update))) }
+        try { await runSolver(target, quotas, update => Object.assign(job, structuredClone(update))) }
         catch (e) { job.status = 'failed'; job.error = String(e.message || e) }
         finally { job.finishedAt = new Date().toISOString(); active = null }
       })
