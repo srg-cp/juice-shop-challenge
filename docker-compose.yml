@@ -1,0 +1,12 @@
+services:
+  solver:
+    build: .
+    restart: unless-stopped
+    init: true
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: "3000"
+      API_TOKEN: ${API_TOKEN:?Set API_TOKEN in Dokploy}
+      ALLOWED_TARGETS: ${ALLOWED_TARGETS:-}
+    shm_size: 1gb

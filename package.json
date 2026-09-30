@@ -1,0 +1,14 @@
+{
+  "name": "juiceshop-scrapper",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test --test-isolation=none"
+  },
+  "dependencies": {
+    "playwright": "1.56.1"
+  },
+  "engines": { "node": ">=22" }
+}

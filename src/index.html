@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Juice Shop Solver</title>
+  <style>
+    :root{color-scheme:dark;font-family:system-ui,Arial,sans-serif;background:#101922;color:#edf4f6}body{max-width:850px;margin:0 auto;padding:32px 18px}h1{margin-bottom:6px}p{color:#b9cad0;line-height:1.5}.card{background:#1d2a34;border:1px solid #38505d;border-radius:14px;padding:20px;margin:18px 0}label{display:block;margin:14px 0 6px;font-weight:600}input{box-sizing:border-box;width:100%;padding:11px;border-radius:7px;border:1px solid #6b8794;background:#0d1820;color:white;font:inherit}button{margin-top:18px;padding:11px 18px;border:0;border-radius:7px;background:#74d992;color:#0c2416;font-weight:700;cursor:pointer}button:disabled{opacity:.5;cursor:wait}.grid{display:grid;grid-template-columns:1fr 130px;gap:16px}.stats{display:flex;gap:24px;flex-wrap:wrap}.stat strong{font-size:1.7rem;display:block;color:#74d992}ul{padding-left:20px}li{margin:8px 0}.error{color:#ff9e9e}.muted{color:#9eb4bd}code{overflow-wrap:anywhere}#result[hidden]{display:none}
+  </style>
+</head>
+<body>
+  <h1>Juice Shop Solver</h1>
+  <p>Automatiza retos en una instancia OWASP Juice Shop que administras. Introduce la URL raíz y la cantidad de retos nuevos que quieres resolver (máximo 35).</p>
+  <div class="card">
+    <form id="form">
+      <label for="token">Token del servicio</label><input id="token" type="password" required autocomplete="off" placeholder="API_TOKEN configurado en Dokploy">
+      <div class="grid"><div><label for="url">URL de Juice Shop</label><input id="url" type="url" required placeholder="https://juice.kormind.com/"></div><div><label for="count">Cantidad</label><input id="count" type="number" min="1" max="35" value="35" required></div></div>
+      <button id="start" type="submit">Iniciar resolución</button>
+    </form>
+  </div>
+  <div id="result" class="card" hidden><h2 id="state">Esperando</h2><div class="stats"><div class="stat"><strong id="solved">0</strong>Retos nuevos</div><div class="stat"><strong id="attempts">0</strong>Intentos</div><div class="stat"><strong id="initial">0</strong>Ya resueltos al inicio</div></div><p id="detail" class="muted"></p><h3>Resueltos en esta ejecución</h3><ul id="items"></ul><h3>Últimos intentos</h3><ul id="log"></ul></div>
+  <script src="/app.js" defer></script>
+</body>
+</html>
