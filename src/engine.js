@@ -252,11 +252,12 @@ export async function inspectTarget(origin) {
 export async function runSolver(origin, requestedQuotas, onUpdate = () => {}) {
   const quotas = validateQuotas(requestedQuotas)
   const c = new JuiceClient(origin)
-  const report = { target: origin, quotas, requested: Object.values(quotas).reduce((sum, n) => sum + n, 0), initialSolved: 0, initialByLevel: {}, achieved: {}, supported: {}, newSolved: 0, extraSolved: 0, solved: [], attempts: [], status: 'running' }
+  const report = { target: origin, quotas, requested: Object.values(quotas).reduce((sum, n) => sum + n, 0), initialSolved: 0, initialByLevel: {}, totalByLevel: {}, achieved: {}, supported: {}, newSolved: 0, extraSolved: 0, solved: [], attempts: [], status: 'running' }
   try {
     let before = await c.challenges()
     report.initialSolved = before.filter(x => x.solved).length
     report.initialByLevel = counts(before, row => row.solved)
+    report.totalByLevel = counts(before, () => true)
     const keys = new Set(steps.map(([key]) => key))
     report.supported = counts(before, row => !row.solved && !row.disabledEnv && keys.has(row.key))
     report.achieved = Object.fromEntries(levels.map(level => [level, 0]))

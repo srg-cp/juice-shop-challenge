@@ -51,6 +51,7 @@ test('cuenta solo retos que cambiaron a resueltos', async () => {
     assert.equal(report.status, 'completed')
     assert.equal(report.newSolved, 1)
     assert.equal(report.achieved[1], 1)
+    assert.equal(report.totalByLevel[1], 1)
     assert.deepEqual(report.solved.map(x => x.key), ['directoryListingChallenge'])
   } finally { await new Promise(resolve => server.close(resolve)) }
 })

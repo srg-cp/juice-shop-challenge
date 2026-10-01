@@ -43,7 +43,7 @@ function renderAvailability(data) {
     const input = document.createElement('input'); input.type = 'number'; input.min = '0'; input.max = String(limit); input.value = String(initial); input.dataset.level = String(level); input.setAttribute('aria-label', `Cantidad de retos nivel ${level}`)
     if (!limit) input.disabled = true
     input.addEventListener('input', selectedTotal)
-    const note = document.createElement('small'); note.textContent = `${supported} pendientes con intento disponible · ${data.remaining[level] || 0} habilitados${data.disabled?.[level] ? ` · ${data.disabled[level]} deshabilitados por la instancia` : ''}`
+    const note = document.createElement('small'); note.textContent = `Total ${data.total[level] || 0} · ya resueltos ${data.solved[level] || 0} · pendientes habilitados ${data.remaining[level] || 0} · deshabilitados ${data.disabled?.[level] || 0} · con intento programado ${supported}`
     card.append(header, input, note); levels.append(card)
   }
   selectedTotal()
@@ -64,8 +64,9 @@ function show(job) {
   $('#detail').textContent = job.error || `${job.newSolved || 0} retos nuevos confirmados en ${job.target}${job.extraSolved ? ` · ${job.extraSolved} fuera de la distribución solicitada` : ''}`
   const progress = $('#progress'); progress.replaceChildren()
   for (let level = 1; level <= 6; level++) {
-    const row = document.createElement('div'); const title = document.createElement('strong'); title.textContent = `${'★'.repeat(level)} ${job.achieved?.[level] || 0}/${job.quotas?.[level] || 0}`
-    row.append(title); progress.append(row)
+    const row = document.createElement('div'); const title = document.createElement('strong'); const totalSolved = (job.initialByLevel?.[level] || 0) + (job.solved || []).filter(challenge => challenge.difficulty === level).length; title.textContent = `${'★'.repeat(level)} ${totalSolved}/${job.totalByLevel?.[level] || 0}`
+    const goal = document.createElement('span'); goal.textContent = ` · nuevos ${job.achieved?.[level] || 0}/${job.quotas?.[level] || 0}`
+    row.append(title, goal); progress.append(row)
   }
   const items = $('#items'); items.replaceChildren()
   for (const row of job.solved || []) { const li = document.createElement('li'); li.textContent = `${'★'.repeat(row.difficulty)} ${row.name || row.key}`; items.append(li) }
