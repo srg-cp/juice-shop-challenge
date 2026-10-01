@@ -5,13 +5,14 @@ const levels = $('#levels')
 const result = $('#result')
 let timer
 let inspectedUrl = null
-if (window.desktop?.getToken) {
+if (window.localSolver?.token) {
   $('#token').required = false
   $('#token').closest('.field').hidden = true
+  $('#form .row').style.gridTemplateColumns = '1fr'
 }
 
 async function authToken() {
-  return window.desktop?.getToken ? window.desktop.getToken() : $('#token').value
+  return window.localSolver?.token || $('#token').value
 }
 
 function quotas() {
@@ -70,7 +71,7 @@ async function api(path, token, body) {
   return data
 }
 $('#inspect').addEventListener('click', async () => {
-  if (!$('#url').value || (!window.desktop && !$('#token').value)) { $('#form-message').textContent = 'Introduce la URL y, si corresponde, el token.'; return }
+  if (!$('#url').value || (!window.localSolver?.token && !$('#token').value)) { $('#form-message').textContent = 'Introduce la URL y, si corresponde, el token.'; return }
   const button = $('#inspect'); button.disabled = true; $('#form-message').textContent = 'Consultando Juice Shop…'; availability.hidden = true
   try {
     const data = await api('/api/targets/inspect', await authToken(), { url: $('#url').value })

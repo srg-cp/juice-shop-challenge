@@ -26,15 +26,19 @@ async function bodyJson(req) {
   try { return JSON.parse(raw) } catch { throw new Error('JSON inválido') }
 }
 
-export function startServer({ token, port = 3000, host = '0.0.0.0', allowedTargets = '' }) {
+export function startServer({ token, port = 3000, host = '0.0.0.0', allowedTargets = '', localMode = false }) {
   if (!token || token.length < 24) throw new Error('Define API_TOKEN con al menos 24 caracteres')
   const jobs = new Map()
   let active = null
   const server = http.createServer(async (req, res) => {
   try {
+    if (localMode && ![`127.0.0.1:${server.address().port}`, `localhost:${server.address().port}`].includes(req.headers.host)) {
+      return send(res, 403, { error: 'Host local inválido' })
+    }
     const path = new URL(req.url, 'http://localhost').pathname
     if (req.method === 'GET' && path === '/health') return send(res, 200, { ok: true })
     if (req.method === 'GET' && path === '/') return send(res, 200, html, 'text/html; charset=utf-8')
+    if (req.method === 'GET' && path === '/local-config.js') return send(res, 200, localMode ? `window.localSolver = { token: ${JSON.stringify(token)} }` : '', 'application/javascript; charset=utf-8')
     if (req.method === 'GET' && path === '/app.js') return send(res, 200, await readFile(fileURLToPath(new URL('./app.js', import.meta.url))), 'application/javascript; charset=utf-8')
     if (!authorized(req, token)) return send(res, 401, { error: 'Token inválido o ausente' })
     if (req.method === 'GET' && path === '/api/steps') return send(res, 200, availableSteps)
