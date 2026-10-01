@@ -52,7 +52,11 @@ class JuiceClient {
   async browse(route) {
     if (!this.browser) {
       const { chromium } = await import('playwright')
-      this.browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] })
+      this.browser = await chromium.launch({
+        headless: true,
+        ...(process.env.SOLVER_BROWSER_CHANNEL ? { channel: process.env.SOLVER_BROWSER_CHANNEL } : {}),
+        args: process.platform === 'linux' ? ['--no-sandbox'] : []
+      })
       this.context = await this.browser.newContext({ ignoreHTTPSErrors: false })
       this.page = await this.context.newPage()
       this.page.on('dialog', dialog => dialog.accept().catch(() => {}))

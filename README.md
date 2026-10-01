@@ -2,6 +2,14 @@
 
 Servicio web para intentar resolver retos en una instancia propia de OWASP Juice Shop. Acepta una URL base HTTP o HTTPS, incluidos dominios y direcciones IP con puerto. Permite elegir cuántos **retos nuevos** intentar de cada nivel de 1 a 6 estrellas, con un máximo de 40 en total y 8 del nivel 3. Consulta `/api/Challenges` después de cada intento y solo cuenta los retos que la instancia confirma como resueltos.
 
+## Programa portátil para Windows
+
+En GitHub, abre **Actions → Windows portable → la ejecución más reciente → Artifacts** y descarga `Juice-Shop-Solver-Windows-portable`. Descomprime el archivo y copia `Juice-Shop-Solver-*-portable.exe` a la PC del laboratorio. También puedes compilarlo en Windows con `npm ci` y `npm run build:win`. El `.exe` se ejecuta sin Docker, Node ni instalación. La aplicación abre su propia ventana; pega la URL asignada, por ejemplo `http://172.30.108.61:3000/`, consulta los retos disponibles y elige la cantidad por nivel.
+
+Las solicitudes salen de esa misma PC, por lo que debe tener acceso a la red del laboratorio. La aplicación usa Microsoft Edge instalado para los retos que requieren navegador. El servicio interno escucha solo en `127.0.0.1` con un puerto aleatorio y un token generado al iniciar; al cerrar la ventana termina el servicio. Si Edge no está disponible o la política de la PC impide automatizarlo, los retos que lo requieren pueden fallar, mientras que los intentos por HTTP siguen disponibles.
+
+Para desarrollar localmente: `npm ci` y `npm run desktop`. El archivo final queda en `dist/`. Al tratarse de un ejecutable sin firma, Windows puede mostrar una advertencia de SmartScreen.
+
 ## Despliegue en Dokploy
 
 1. Sube este repositorio a GitHub y crea un proyecto de tipo **Docker Compose** en Dokploy apuntando al repositorio.
@@ -39,6 +47,6 @@ El motor incluye intentos basados en los retos documentados para Juice Shop v20.
 
 Referencias: [API de retos](https://pwning.owasp-juice.shop/companion-guide/latest/part4/integration.html) y [soluciones de Juice Shop v20.2.0](https://pwning.owasp-juice.shop/companion-guide/snapshot/appendix/solutions.html).
 
-## Desarrollo
+## Desarrollo y pruebas
 
 `npm test` ejecuta las pruebas del motor. El contenedor incluye Chromium mediante la imagen oficial de Playwright.

@@ -5,6 +5,14 @@ const levels = $('#levels')
 const result = $('#result')
 let timer
 let inspectedUrl = null
+if (window.desktop?.getToken) {
+  $('#token').required = false
+  $('#token').closest('.field').hidden = true
+}
+
+async function authToken() {
+  return window.desktop?.getToken ? window.desktop.getToken() : $('#token').value
+}
 
 function quotas() {
   return Object.fromEntries([...levels.querySelectorAll('input')].map(input => [input.dataset.level, Number(input.value)]))
@@ -62,10 +70,10 @@ async function api(path, token, body) {
   return data
 }
 $('#inspect').addEventListener('click', async () => {
-  if (!$('#token').value || !$('#url').value) { $('#form-message').textContent = 'Introduce el token y la URL primero.'; return }
+  if (!$('#url').value || (!window.desktop && !$('#token').value)) { $('#form-message').textContent = 'Introduce la URL y, si corresponde, el token.'; return }
   const button = $('#inspect'); button.disabled = true; $('#form-message').textContent = 'Consultando Juice Shop…'; availability.hidden = true
   try {
-    const data = await api('/api/targets/inspect', $('#token').value, { url: $('#url').value })
+    const data = await api('/api/targets/inspect', await authToken(), { url: $('#url').value })
     inspectedUrl = $('#url').value
     renderAvailability(data)
     $('#form-message').textContent = 'Disponibilidad actualizada.'
@@ -79,8 +87,8 @@ form.addEventListener('submit', async event => {
   const values = quotas(), total = Object.values(values).reduce((sum, n) => sum + n, 0)
   if (total < 1 || total > 40 || [...levels.querySelectorAll('input')].some(input => !Number.isInteger(Number(input.value)) || Number(input.value) < 0 || Number(input.value) > Number(input.max))) { $('#form-message').textContent = 'Revisa las cantidades por nivel.'; return }
   const button = $('#start'); button.disabled = true
-  const token = $('#token').value
   try {
+    const token = await authToken()
     const data = await api('/api/runs', token, { url: $('#url').value, quotas: values })
     const poll = async () => {
       try {

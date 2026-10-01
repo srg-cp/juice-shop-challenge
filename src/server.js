@@ -2,20 +2,16 @@ import http from 'node:http'
 import { randomUUID, timingSafeEqual } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
+import { resolve } from 'node:path'
 import { normalizeTarget, runSolver, availableSteps, inspectTarget, validateQuotas } from './engine.js'
 
-const port = Number(process.env.PORT || 3000)
-const token = process.env.API_TOKEN
-if (!token || token.length < 24) throw new Error('Define API_TOKEN con al menos 24 caracteres')
-const jobs = new Map()
-let active = null
 const html = await readFile(fileURLToPath(new URL('./index.html', import.meta.url)))
 
 function send(res, status, body, type = 'application/json; charset=utf-8') {
   res.writeHead(status, { 'Content-Type': type, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'" })
   res.end(typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body))
 }
-function authorized(req) {
+function authorized(req, token) {
   const bearer = req.headers.authorization?.match(/^Bearer (.+)$/)?.[1]
   if (!bearer) return false
   const a = Buffer.from(bearer), b = Buffer.from(token)
@@ -30,23 +26,27 @@ async function bodyJson(req) {
   try { return JSON.parse(raw) } catch { throw new Error('JSON inválido') }
 }
 
-const server = http.createServer(async (req, res) => {
+export function startServer({ token, port = 3000, host = '0.0.0.0', allowedTargets = '' }) {
+  if (!token || token.length < 24) throw new Error('Define API_TOKEN con al menos 24 caracteres')
+  const jobs = new Map()
+  let active = null
+  const server = http.createServer(async (req, res) => {
   try {
     const path = new URL(req.url, 'http://localhost').pathname
     if (req.method === 'GET' && path === '/health') return send(res, 200, { ok: true })
     if (req.method === 'GET' && path === '/') return send(res, 200, html, 'text/html; charset=utf-8')
     if (req.method === 'GET' && path === '/app.js') return send(res, 200, await readFile(fileURLToPath(new URL('./app.js', import.meta.url))), 'application/javascript; charset=utf-8')
-    if (!authorized(req)) return send(res, 401, { error: 'Token inválido o ausente' })
+    if (!authorized(req, token)) return send(res, 401, { error: 'Token inválido o ausente' })
     if (req.method === 'GET' && path === '/api/steps') return send(res, 200, availableSteps)
     if (req.method === 'POST' && path === '/api/targets/inspect') {
       const input = await bodyJson(req)
-      const target = normalizeTarget(input.url, process.env.ALLOWED_TARGETS || '')
+      const target = normalizeTarget(input.url, allowedTargets)
       return send(res, 200, await inspectTarget(target))
     }
     if (req.method === 'POST' && path === '/api/runs') {
       if (active) return send(res, 409, { error: 'Ya hay una ejecución activa' })
       const input = await bodyJson(req)
-      const target = normalizeTarget(input.url, process.env.ALLOWED_TARGETS || '')
+      const target = normalizeTarget(input.url, allowedTargets)
       const quotas = validateQuotas(input.quotas)
       const count = Object.values(quotas).reduce((sum, n) => sum + n, 0)
       const id = randomUUID()
@@ -66,5 +66,22 @@ const server = http.createServer(async (req, res) => {
     }
     return send(res, 404, { error: 'Ruta no encontrada' })
   } catch (e) { return send(res, 400, { error: String(e.message || e) }) }
-})
-server.listen(port, '0.0.0.0', () => console.log(`Juice Shop solver listening on ${port}`))
+  })
+  return new Promise((resolveListen, rejectListen) => {
+    server.once('error', rejectListen)
+    server.listen(port, host, () => {
+      server.off('error', rejectListen)
+      resolveListen(server)
+    })
+  })
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const server = await startServer({
+    token: process.env.API_TOKEN,
+    port: Number(process.env.PORT || 3000),
+    host: process.env.HOST || '0.0.0.0',
+    allowedTargets: process.env.ALLOWED_TARGETS || ''
+  })
+  console.log(`Juice Shop solver listening on ${server.address().address}:${server.address().port}`)
+}
