@@ -27,13 +27,12 @@ function selectedTotal() {
 function renderAvailability(data) {
   availability.hidden = false
   levels.replaceChildren()
-  const reserve = Math.min(4, data.supported[3] || 0)
-  let budget = 40 - reserve
+  let budget = 40
   for (let level = 1; level <= 6; level++) {
     const supported = data.supported[level] || 0
     const limit = level === 3 ? Math.min(8, supported) : supported
-    const initial = level <= 2 ? Math.min(budget, supported) : level === 3 ? reserve : 0
-    if (level <= 2) budget -= initial
+    const initial = level <= 2 ? Math.min(budget, supported) : level === 3 ? Math.min(4, supported, budget) : 0
+    budget -= initial
     const card = document.createElement('div'); card.className = 'level'
     const header = document.createElement('header')
     const title = document.createElement('strong'); title.textContent = `Nivel ${level}`
@@ -42,11 +41,18 @@ function renderAvailability(data) {
     const input = document.createElement('input'); input.type = 'number'; input.min = '0'; input.max = String(limit); input.value = String(initial); input.dataset.level = String(level); input.setAttribute('aria-label', `Cantidad de retos nivel ${level}`)
     if (!limit) input.disabled = true
     input.addEventListener('input', selectedTotal)
-    const note = document.createElement('small'); note.textContent = `${supported} pendientes con intento disponible · ${data.remaining[level] || 0} pendientes en Juice Shop`
+    const note = document.createElement('small'); note.textContent = `${supported} pendientes con intento disponible · ${data.remaining[level] || 0} habilitados${data.disabled?.[level] ? ` · ${data.disabled[level]} deshabilitados por la instancia` : ''}`
     card.append(header, input, note); levels.append(card)
   }
   selectedTotal()
+  $('#first-two').disabled = (data.supported[1] || 0) + (data.supported[2] || 0) > 40
 }
+$('#first-two').addEventListener('click', () => {
+  for (const input of levels.querySelectorAll('input')) {
+    input.value = Number(input.dataset.level) <= 2 ? input.max : '0'
+  }
+  selectedTotal()
+})
 function show(job) {
   result.hidden = false
   $('#state').textContent = ({ queued: 'En cola', running: 'En progreso', completed: 'Meta alcanzada', partial: 'Finalizado parcialmente', failed: 'Falló' })[job.status] || job.status

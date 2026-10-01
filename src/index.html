@@ -21,8 +21,9 @@
       <div class="actions"><button id="inspect" class="secondary" type="button">Consultar retos disponibles</button><span id="form-message" class="muted" role="status"></span></div>
       <section id="availability" hidden>
         <h2>Elige la cantidad por nivel</h2>
-        <p>El perfil inicial toma los niveles 1 y 2 disponibles, hasta 4 del nivel 3, y deja los niveles 4 a 6 en cero. Puedes ajustarlo.</p>
+        <p>El perfil inicial toma todos los retos pendientes con intento de los niveles 1 y 2, y luego hasta 4 del nivel 3 si queda espacio. Puedes ajustarlo. Los retos del chatbot requieren que la instancia tenga su servicio de IA activo.</p>
         <div class="levels" id="levels"></div>
+        <div class="actions"><button id="first-two" class="secondary" type="button">Seleccionar niveles 1 y 2 completos</button></div>
         <div class="actions summary"><div><strong id="selected">0</strong> <span>de 40 seleccionados</span></div><button id="start" type="submit">Iniciar resolución</button></div>
       </section>
     </form>

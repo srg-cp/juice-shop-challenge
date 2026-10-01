@@ -2,6 +2,8 @@
 
 Servicio web para intentar resolver retos en una instancia propia de OWASP Juice Shop. Acepta una URL base HTTP o HTTPS, incluidos dominios y direcciones IP con puerto. Permite elegir cuántos **retos nuevos** intentar de cada nivel de 1 a 6 estrellas, con un máximo de 40 en total y 8 del nivel 3. Consulta `/api/Challenges` después de cada intento y solo cuenta los retos que la instancia confirma como resueltos.
 
+Para Juice Shop v20.2.0 hay intentos para los **13 retos de nivel 1 y los 19 de nivel 2**. El botón **Seleccionar niveles 1 y 2 completos** elige todos los pendientes con intento de esos niveles y pone los demás en cero. Juice Shop puede deshabilitar retos según el entorno; esos retos se muestran aparte y no se intentan. Los retos **AI Debugging** y **Chatbot Prompt Injection** requieren que la propia instancia de Juice Shop tenga funcionando su proveedor de IA. Si el chatbot devuelve un error de conexión, el informe lo indica y la ejecución queda parcial. [Guía oficial de configuración del chatbot](https://pwning.owasp-juice.shop/companion-guide/local/part1/running.html).
+
 ## Programa portátil para Windows
 
 En GitHub, abre **Actions → Windows portable → la ejecución más reciente → Artifacts** y descarga `Juice-Shop-Solver-Windows-portable`. Descomprime el archivo y copia `Juice-Shop-Solver-*-portable.exe` a la PC del laboratorio. También puedes compilarlo en Windows con `npm ci` y `npm run build:win`. El `.exe` se ejecuta sin Docker, Node ni instalación. Al abrirlo, inicia la interfaz en `http://127.0.0.1:4173/` y abre esa página en el navegador predeterminado. Si `4173` ya está ocupado, elige otro puerto libre y abre la dirección correcta automáticamente. Pega la URL de Juice Shop asignada, por ejemplo `http://172.30.108.61:3000/`, consulta los retos disponibles y elige la cantidad por nivel.
@@ -29,7 +31,7 @@ Content-Type: application/json
 {"url":"https://juice.kormind.com/"}
 ```
 
-La respuesta muestra por nivel el total, los ya resueltos, los pendientes habilitados y los pendientes con un intento en este motor. Para iniciar una ejecución:
+La respuesta muestra por nivel el total, los ya resueltos, los deshabilitados, los pendientes habilitados y los pendientes con un intento en este motor. Para iniciar una ejecución:
 
 ```http
 POST /api/runs
