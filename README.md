@@ -1,8 +1,10 @@
 # Juice Shop Solver
 
-Servicio web para intentar resolver retos en una instancia propia de OWASP Juice Shop. Acepta una URL base HTTP o HTTPS, incluidos dominios y direcciones IP con puerto. Permite elegir cuántos **retos nuevos** intentar de cada nivel de 1 a 6 estrellas, con un máximo de 40 en total y 8 del nivel 3. Consulta `/api/Challenges` después de cada intento y solo cuenta los retos que la instancia confirma como resueltos.
+Servicio web para intentar resolver retos en una instancia propia de OWASP Juice Shop. Acepta una URL base HTTP o HTTPS, incluidos dominios y direcciones IP con puerto. Permite elegir cuántos **retos nuevos** intentar de cada nivel de 1 a 6 estrellas, con un máximo de 64 en total y 8 del nivel 3. Consulta `/api/Challenges` después de cada intento y solo cuenta los retos que la instancia confirma como resueltos.
 
 Para Juice Shop v20.2.0 hay intentos para los **13 retos de nivel 1 y los 19 de nivel 2**. El botón **Seleccionar niveles 1 y 2 completos** elige todos los pendientes con intento de esos niveles y pone los demás en cero. Juice Shop puede deshabilitar retos según el entorno; esos retos se muestran aparte y no se intentan. Los retos **AI Debugging** y **Chatbot Prompt Injection** requieren que la propia instancia de Juice Shop tenga funcionando su proveedor de IA. Si el chatbot devuelve un error de conexión, el informe lo indica y la ejecución queda parcial. [Guía oficial de configuración del chatbot](https://pwning.owasp-juice.shop/companion-guide/local/part1/running.html).
+
+Si una instancia muestra más retos que esta versión, pulsa **Consultar retos disponibles** y luego **Descargar diagnóstico**. El JSON incluye las claves y el estado de todos los retos para identificar qué intentos faltan.
 
 ## Programa portátil para Windows
 

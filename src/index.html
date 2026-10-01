@@ -11,20 +11,20 @@
 </head>
 <body>
   <h1>Juice Shop Solver</h1>
-  <p class="lead">Elige una instancia OWASP Juice Shop y cuántos retos nuevos intentar por nivel de estrellas. Puedes seleccionar hasta 40 en total. Primero consulta la disponibilidad de la instancia.</p>
+  <p class="lead">Elige una instancia OWASP Juice Shop y cuántos retos nuevos intentar por nivel de estrellas. Puedes seleccionar hasta 64 en total. Primero consulta la disponibilidad de la instancia.</p>
   <div class="card">
     <form id="form">
       <div class="row">
         <div class="field"><label for="token">Token del servicio</label><input id="token" type="password" autocomplete="off" required placeholder="API_TOKEN de Dokploy"></div>
         <div class="field"><label for="url">URL raíz de Juice Shop</label><input id="url" type="url" required placeholder="https://juice.kormind.com/"></div>
       </div>
-      <div class="actions"><button id="inspect" class="secondary" type="button">Consultar retos disponibles</button><span id="form-message" class="muted" role="status"></span></div>
+      <div class="actions"><button id="inspect" class="secondary" type="button">Consultar retos disponibles</button><button id="download-diagnostic" class="secondary" type="button" disabled>Descargar diagnóstico</button><span id="form-message" class="muted" role="status"></span></div>
       <section id="availability" hidden>
         <h2>Elige la cantidad por nivel</h2>
         <p>El perfil inicial toma todos los retos pendientes con intento de los niveles 1 y 2, y luego hasta 4 del nivel 3 si queda espacio. Puedes ajustarlo. Los retos del chatbot requieren que la instancia tenga su servicio de IA activo.</p>
         <div class="levels" id="levels"></div>
         <div class="actions"><button id="first-two" class="secondary" type="button">Seleccionar niveles 1 y 2 completos</button></div>
-        <div class="actions summary"><div><strong id="selected">0</strong> <span>de 40 seleccionados</span></div><button id="start" type="submit">Iniciar resolución</button></div>
+        <div class="actions summary"><div><strong id="selected">0</strong> <span>de 64 seleccionados</span></div><button id="start" type="submit">Iniciar resolución</button></div>
       </section>
     </form>
   </div>

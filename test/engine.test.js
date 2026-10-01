@@ -29,9 +29,10 @@ test('acepta dominios e IP con puertos y aplica allowlist opcional', () => {
   assert.throws(() => normalizeTarget('http://other.test/', 'https://juice.kormind.com'))
 })
 
-test('valida límite total y límite de nivel 3', () => {
+test('acepta 27 + 29 retos y valida el límite total y el de nivel 3', () => {
   assert.deepEqual(validateQuotas(quota({ 1: 2, 3: 4 })), quota({ 1: 2, 3: 4 }))
-  assert.throws(() => validateQuotas(quota({ 1: 41 })))
+  assert.deepEqual(validateQuotas(quota({ 1: 27, 2: 29 })), quota({ 1: 27, 2: 29 }))
+  assert.throws(() => validateQuotas(quota({ 1: 27, 2: 29, 4: 9 })))
   assert.throws(() => validateQuotas(quota({ 3: 9 })))
   assert.throws(() => validateQuotas(quota({})))
 })
@@ -74,6 +75,7 @@ test('solo ejecuta los niveles pedidos y muestra disponibilidad', async () => {
     assert.equal(preview.supported[1], 1)
     assert.equal(preview.supported[2], 1)
     assert.equal(preview.disabled[2], 1)
+    assert.deepEqual(preview.challenges.map(row => row.key), ['directoryListingChallenge', 'securityPolicyChallenge', 'reflectedXssChallenge'])
     const report = await runSolver(origin, quota({ 2: 1 }))
     assert.equal(report.status, 'completed')
     assert.equal(report.achieved[2], 1)

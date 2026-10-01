@@ -3,8 +3,10 @@ const form = $('#form')
 const availability = $('#availability')
 const levels = $('#levels')
 const result = $('#result')
+const MAX_TOTAL = 64
 let timer
 let inspectedUrl = null
+let inspectedData = null
 if (window.localSolver?.token) {
   $('#token').required = false
   $('#token').closest('.field').hidden = true
@@ -21,13 +23,13 @@ function quotas() {
 function selectedTotal() {
   const total = Object.values(quotas()).reduce((sum, n) => sum + n, 0)
   $('#selected').textContent = total
-  $('#start').disabled = total < 1 || total > 40
-  $('#form-message').textContent = total > 40 ? 'El máximo es 40 retos en total.' : ''
+  $('#start').disabled = total < 1 || total > MAX_TOTAL
+  $('#form-message').textContent = total > MAX_TOTAL ? `El máximo es ${MAX_TOTAL} retos en total.` : ''
 }
 function renderAvailability(data) {
   availability.hidden = false
   levels.replaceChildren()
-  let budget = 40
+  let budget = MAX_TOTAL
   for (let level = 1; level <= 6; level++) {
     const supported = data.supported[level] || 0
     const limit = level === 3 ? Math.min(8, supported) : supported
@@ -45,7 +47,7 @@ function renderAvailability(data) {
     card.append(header, input, note); levels.append(card)
   }
   selectedTotal()
-  $('#first-two').disabled = (data.supported[1] || 0) + (data.supported[2] || 0) > 40
+  $('#first-two').disabled = (data.supported[1] || 0) + (data.supported[2] || 0) > MAX_TOTAL
 }
 $('#first-two').addEventListener('click', () => {
   for (const input of levels.querySelectorAll('input')) {
@@ -82,17 +84,29 @@ $('#inspect').addEventListener('click', async () => {
   try {
     const data = await api('/api/targets/inspect', await authToken(), { url: $('#url').value })
     inspectedUrl = $('#url').value
+    inspectedData = data
+    $('#download-diagnostic').disabled = false
     renderAvailability(data)
     $('#form-message').textContent = 'Disponibilidad actualizada.'
-  } catch (e) { inspectedUrl = null; $('#form-message').textContent = e.message }
+  } catch (e) { inspectedUrl = null; inspectedData = null; $('#download-diagnostic').disabled = true; $('#form-message').textContent = e.message }
   finally { button.disabled = false }
 })
-$('#url').addEventListener('input', () => { availability.hidden = true; inspectedUrl = null })
+$('#url').addEventListener('input', () => { availability.hidden = true; inspectedUrl = null; inspectedData = null; $('#download-diagnostic').disabled = true })
+$('#download-diagnostic').addEventListener('click', () => {
+  if (!inspectedData) return
+  const blob = new Blob([JSON.stringify(inspectedData, null, 2)], { type: 'application/json' })
+  const href = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = href
+  link.download = 'juice-shop-diagnostico.json'
+  link.click()
+  setTimeout(() => URL.revokeObjectURL(href), 1000)
+})
 form.addEventListener('submit', async event => {
   event.preventDefault(); clearTimeout(timer)
   if (inspectedUrl !== $('#url').value) { $('#form-message').textContent = 'Consulta la disponibilidad de esta URL primero.'; return }
   const values = quotas(), total = Object.values(values).reduce((sum, n) => sum + n, 0)
-  if (total < 1 || total > 40 || [...levels.querySelectorAll('input')].some(input => !Number.isInteger(Number(input.value)) || Number(input.value) < 0 || Number(input.value) > Number(input.max))) { $('#form-message').textContent = 'Revisa las cantidades por nivel.'; return }
+  if (total < 1 || total > MAX_TOTAL || [...levels.querySelectorAll('input')].some(input => !Number.isInteger(Number(input.value)) || Number(input.value) < 0 || Number(input.value) > Number(input.max))) { $('#form-message').textContent = 'Revisa las cantidades por nivel.'; return }
   const button = $('#start'); button.disabled = true
   try {
     const token = await authToken()

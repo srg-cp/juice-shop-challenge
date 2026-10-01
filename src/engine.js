@@ -215,17 +215,18 @@ const steps = [
 ]
 
 const levels = [1, 2, 3, 4, 5, 6]
+const MAX_TOTAL = 64
 
 export function validateQuotas(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Indica la cantidad por nivel')
   const quotas = {}
   for (const level of levels) {
     const amount = value[level]
-    if (!Number.isInteger(amount) || amount < 0 || amount > (level === 3 ? 8 : 40)) throw new Error(`Cantidad inválida para nivel ${level}`)
+    if (!Number.isInteger(amount) || amount < 0 || amount > (level === 3 ? 8 : MAX_TOTAL)) throw new Error(`Cantidad inválida para nivel ${level}`)
     quotas[level] = amount
   }
   const total = Object.values(quotas).reduce((sum, n) => sum + n, 0)
-  if (total < 1 || total > 40) throw new Error('El total debe estar entre 1 y 40')
+  if (total < 1 || total > MAX_TOTAL) throw new Error(`El total debe estar entre 1 y ${MAX_TOTAL}`)
   return quotas
 }
 
@@ -239,6 +240,7 @@ export async function inspectTarget(origin) {
   const keys = new Set(steps.map(([key]) => key))
   return {
     target: origin,
+    challenges: rows.map(row => ({ key: row.key, name: row.name, difficulty: row.difficulty, solved: row.solved, disabledEnv: row.disabledEnv || null })),
     total: counts(rows, () => true),
     solved: counts(rows, row => row.solved),
     disabled: counts(rows, row => !row.solved && Boolean(row.disabledEnv)),
